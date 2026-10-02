@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cameras</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    color: #e8e8e8;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  #wall {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 4px;
+    height: 100%;
+  }
+  .tile {
+    position: relative;
+    background: #111;
+    overflow: hidden;
+    cursor: zoom-in;
+  }
+  .tile iframe, .tile img {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    object-fit: contain;
+    display: block;
+    pointer-events: none; /* let clicks reach the tile */
+  }
+  .name {
+    position: absolute;
+    left: 10px;
+    bottom: 8px;
+    font-size: 14px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  /* One camera enlarged to fill the screen */
+  #wall.single { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  #wall.single .tile { display: none; cursor: zoom-out; }
+  #wall.single .tile.active { display: block; }
+
+  /* Stack vertically on narrow phone screens */
+  @media (max-width: 600px) and (orientation: portrait) {
+    html, body { overflow: auto; }
+    #wall { grid-template-columns: 1fr; grid-template-rows: none; height: auto; }
+    .tile { aspect-ratio: 16 / 9; }
+  }
+</style>
+</head>
+<body>
+<div id="wall"></div>
+
+<script>
+  // ===== Edit these to match your setup =====
+  const FRIGATE_HOST = "192.168.1.50";   // IP or hostname of your Frigate LXC/VM
+
+  // Names must match your go2rtc stream names (and Frigate camera names for MJPEG mode)
+  const CAMERAS = ["front_door", "driveway", "backyard", "garage"];
+
+  // "mse"   = full-quality live video from go2rtc (port 1984). Recommended.
+  // "mjpeg" = lower-res MJPEG from Frigate's API (port 5000). Works everywhere, lighter on clients.
+  // You can also override per-visit: cameras.html?mode=mjpeg
+  const DEFAULT_MODE = "mse";
+  // ===========================================
+
+  const mode = new URLSearchParams(location.search).get("mode") || DEFAULT_MODE;
+  const wall = document.getElementById("wall");
+
+  function sourceFor(cam) {
+    if (mode === "mjpeg") {
+      return { tag: "img", src: `http://${FRIGATE_HOST}:5000/api/${cam}?fps=5&h=720` };
+    }
+    return { tag: "iframe", src: `http://${FRIGATE_HOST}:1984/stream.html?src=${encodeURIComponent(cam)}&mode=mse` };
+  }
+
+  CAMERAS.forEach(cam => {
+    const tile = document.createElement("div");
+    tile.className = "tile";
+
+    const { tag, src } = sourceFor(cam);
+    const el = document.createElement(tag);
+    el.src = src;
+    if (tag === "iframe") el.allow = "autoplay";
+    el.alt = cam;
+
+    const label = document.createElement("div");
+    label.className = "name";
+    label.textContent = cam.replace(/_/g, " ");
+
+    tile.append(el, label);
+
+    // Click a camera to enlarge it, click again to return to the grid
+    tile.addEventListener("click", () => {
+      const single = wall.classList.toggle("single");
+      document.querySelectorAll(".tile").forEach(t => t.classList.remove("active"));
+      if (single) tile.classList.add("active");
+    });
+
+    wall.appendChild(tile);
+  });
+
+  // Press F for browser fullscreen, Escape to return to the grid
+  document.addEventListener("keydown", e => {
+    if (e.key === "f" || e.key === "F") {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+    if (e.key === "Escape") wall.classList.remove("single");
+  });
+
+  // Reload every 6 hours to recover from any stalled streams on always-on displays
+  setTimeout(() => location.reload(), 6 * 60 * 60 * 1000);
+</script>
+</body>
+</html>
