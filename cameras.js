@@ -9,28 +9,34 @@ const DEFAULT_MODE = "mse";
 const mode = new URLSearchParams(location.search).get("mode") || DEFAULT_MODE;
 const wall = document.getElementById("wall");
 
-function sourceFor(cam) {
+// Load go2rtc's <video-stream> player straight into the page (instead of an iframe of
+// stream.html) so we can style it, e.g. hide its "MSE" mode badge.
+if (mode !== "mjpeg") import(`http://${FRIGATE_HOST}:1984/video-stream.js`);
+
+function playerFor(cam) {
   if (mode === "mjpeg") {
-    return { tag: "img", src: `http://${FRIGATE_HOST}:5000/api/${cam}?fps=5&h=720` };
+    const img = document.createElement("img");
+    img.src = `http://${FRIGATE_HOST}:5000/api/${cam}?fps=5&h=720`;
+    img.alt = cam;
+    return img;
   }
-  return { tag: "iframe", src: `http://${FRIGATE_HOST}:1984/stream.html?src=${encodeURIComponent(cam)}&mode=mse` };
+  const player = document.createElement("video-stream");
+  // Set properties only after the element is upgraded, or they'd shadow its setters
+  customElements.whenDefined("video-stream").then(() => {
+    player.background = true; // keep streaming while hidden (enlarged view)
+    player.mode = "mse";
+    player.src = `ws://${FRIGATE_HOST}:1984/api/ws?src=${encodeURIComponent(cam)}`;
+  });
+  return player;
 }
 
 CAMERAS.forEach(cam => {
   const tile = document.createElement("div");
   tile.className = "tile";
 
-  const { tag, src } = sourceFor(cam);
-  const el = document.createElement(tag);
-  el.src = src;
-  if (tag === "iframe") el.allow = "autoplay";
-  el.alt = cam;
+  const el = playerFor(cam);
 
-  const label = document.createElement("div");
-  label.className = "name";
-  label.textContent = cam.replace(/_/g, " ");
-
-  tile.append(el, label);
+  tile.append(el);
 
   // Click a camera to enlarge it, click again to return to the grid
   tile.addEventListener("click", () => {
