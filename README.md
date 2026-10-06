@@ -11,6 +11,7 @@ A single static web page that shows live feeds from a [Frigate](https://frigate.
   - `mse` (default): full-quality live video from go2rtc (port 1984)
   - `mjpeg`: lower-resolution MJPEG from Frigate's API (port 5000). Works in every browser and is lighter on old devices.
 - Reloads itself every 6 hours to recover from stalled streams
+- Kiosk mode (`?kiosk=1`) hides the mouse cursor for wall displays
 
 ## Files
 
@@ -49,6 +50,13 @@ A single static web page that shows live feeds from a [Frigate](https://frigate.
 
    ```
    http://<host>/cameras.html?mode=mjpeg
+   ```
+
+4. On wall displays, add `kiosk=1` to the URL to hide the mouse cursor. The cursor shows as normal without it, so you can still use the page on a desktop:
+
+   ```
+   http://<host>/?kiosk=1
+   http://<host>/cameras.html?mode=mjpeg&kiosk=1
    ```
 
 To try it locally, open `cameras.html` directly in a browser.
